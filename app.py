@@ -1,8 +1,11 @@
 from flask import Flask, render_template, request, send_file
 from analysis import process_result
 import io
+import logging
 
 app = Flask(__name__)
+
+logging.basicConfig(level=logging.INFO)
 
 stored_file_content = None
 stored_subject_inputs = {}
@@ -17,76 +20,89 @@ def home():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    global stored_file_content, stored_subject_inputs
+    try:
+        global stored_file_content, stored_subject_inputs
 
-    file = request.files.get("file")
+        file = request.files.get("file")
 
-    if not file:
-        return "No file uploaded."
+        if not file:
+            return "No file uploaded."
 
-    stored_file_content = file.read()
-    stored_subject_inputs = {}
+        stored_file_content = file.read()
+        stored_subject_inputs = {}
 
-    result = process_result(io.BytesIO(stored_file_content))
+        result = process_result(io.BytesIO(stored_file_content))
 
-    # 🔴 Missing subject codes
-    if "missing_subjects" in result:
-        return render_template(
-            "missing_subjects.html",
-            codes=result["missing_subjects"]
-        )
+        if "missing_subjects" in result:
+            return render_template(
+                "missing_subjects.html",
+                codes=result["missing_subjects"]
+            )
 
-    # 🔴 Missing teachers
-    if "missing_teachers" in result:
-        return render_template(
-            "missing_teachers.html",
-            subjects=result["missing_teachers"]
-        )
+        if "missing_teachers" in result:
+            return render_template(
+                "missing_teachers.html",
+                subjects=result["missing_teachers"]
+            )
 
-    return handle_success(result)
+        return handle_success(result)
+
+    except Exception as e:
+        logging.exception("Upload error")
+        return str(e)
 
 
 @app.route("/submit_subjects", methods=["POST"])
 def submit_subjects():
-    global stored_file_content, stored_subject_inputs
+    try:
+        global stored_file_content, stored_subject_inputs
 
-    subject_inputs = {}
+        subject_inputs = {}
 
-    for code in request.form:
-        subject_inputs[code] = request.form[code]
+        for code in request.form:
+            subject_inputs[code] = request.form[code]
 
-    stored_subject_inputs.update(subject_inputs)
+        stored_subject_inputs.update(subject_inputs)
 
-    result = process_result(
-        io.BytesIO(stored_file_content),
-        subject_inputs=stored_subject_inputs
-    )
-
-    if "missing_teachers" in result:
-        return render_template(
-            "missing_teachers.html",
-            subjects=result["missing_teachers"]
+        result = process_result(
+            io.BytesIO(stored_file_content),
+            subject_inputs=stored_subject_inputs
         )
 
-    return handle_success(result)
+        if "missing_teachers" in result:
+            return render_template(
+                "missing_teachers.html",
+                subjects=result["missing_teachers"]
+            )
+
+        return handle_success(result)
+
+    except Exception as e:
+        logging.exception("Subject submit error")
+        return str(e)
 
 
 @app.route("/submit_teachers", methods=["POST"])
 def submit_teachers():
-    global stored_file_content, stored_subject_inputs
+    try:
+        global stored_file_content, stored_subject_inputs
 
-    teacher_inputs = {}
+        teacher_inputs = {}
 
-    for subject in request.form:
-        teacher_inputs[subject] = request.form[subject]
+        for subject in request.form:
+            teacher_inputs[subject] = request.form[subject]
 
-    result = process_result(
-        io.BytesIO(stored_file_content),
-        subject_inputs=stored_subject_inputs,
-        teacher_inputs=teacher_inputs
-    )
+        result = process_result(
+            io.BytesIO(stored_file_content),
+            subject_inputs=stored_subject_inputs,
+            teacher_inputs=teacher_inputs
+        )
 
-    return handle_success(result)
+        return handle_success(result)
+
+    except Exception as e:
+        logging.exception("Teacher submit error")
+        return str(e)
 
 
 def handle_success(result):
@@ -123,4 +139,4 @@ def download_word():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
