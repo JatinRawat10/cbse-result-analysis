@@ -17,38 +17,34 @@ def home():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    try:
-        global stored_file_content, stored_subject_inputs
+    global stored_file_content, stored_subject_inputs
 
-        file = request.files.get("file")
+    file = request.files.get("file")
 
-        if not file:
-            return "No file uploaded."
+    if not file:
+        return "No file uploaded."
 
-        stored_file_content = file.read()
-        stored_subject_inputs = {}
+    stored_file_content = file.read()
+    stored_subject_inputs = {}
 
-        result = process_result(io.BytesIO(stored_file_content))
+    result = process_result(io.BytesIO(stored_file_content))
 
-        if "missing_subjects" in result:
-            return render_template(
-                "missing_subjects.html",
-                codes=result["missing_subjects"]
-            )
+    # 🔴 Missing subject codes
+    if "missing_subjects" in result:
+        return render_template(
+            "missing_subjects.html",
+            codes=result["missing_subjects"]
+        )
 
-        if "missing_teachers" in result:
-            return render_template(
-                "missing_teachers.html",
-                subjects=result["missing_teachers"]
-            )
+    # 🔴 Missing teachers
+    if "missing_teachers" in result:
+        return render_template(
+            "missing_teachers.html",
+            subjects=result["missing_teachers"]
+        )
 
-        return handle_success(result)
+    return handle_success(result)
 
-    except Exception as e:
-        import traceback
-        print("ERROR OCCURRED:")
-        traceback.print_exc()
-        return str(e)
 
 @app.route("/submit_subjects", methods=["POST"])
 def submit_subjects():
@@ -127,5 +123,4 @@ def download_word():
 
 
 if __name__ == "__main__":
-
     app.run(debug=True)
