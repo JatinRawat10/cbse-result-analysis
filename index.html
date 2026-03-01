@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CBSE Result Processing System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            color: white;
+        }
+
+        .card-custom {
+            background: #ffffff;
+            color: #111827;
+            border-radius: 20px;
+        }
+
+        .upload-area {
+            border: 2px dashed #6c757d;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            transition: 0.3s ease;
+        }
+
+        .upload-area:hover {
+            background-color: #f8f9fa;
+            border-color: #0d6efd;
+        }
+
+        .btn-custom {
+            border-radius: 50px;
+            padding: 10px 30px;
+        }
+
+        .title {
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container d-flex justify-content-center align-items-center vh-100">
+    <div class="card card-custom shadow-lg p-5 w-100" style="max-width: 600px;">
+
+        <div class="text-center mb-4">
+            <h2 class="title">CBSE Result Processing Engine</h2>
+            <p class="subtitle">
+                Upload Gazette / TXT File to Generate Structured Excel Report
+            </p>
+        </div>
+
+        <form action="/upload" method="POST" enctype="multipart/form-data">
+
+            <div class="upload-area mb-4">
+                <input type="file" name="file" class="form-control" required>
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg btn-custom">
+                    Process & Generate Report
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+</body>
+</html>
