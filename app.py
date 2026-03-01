@@ -27,8 +27,15 @@ def upload():
 
         if not file:
             return "No file uploaded."
-
+        
+        if not file.filename.lower().endswith(".txt"):
+            return "Only .txt files are allowed."
+        
         stored_file_content = file.read()
+
+        if not stored_file_content.strip():
+            return "File is empty."
+
         stored_subject_inputs = {}
 
         result = process_result(io.BytesIO(stored_file_content))
@@ -140,3 +147,4 @@ def download_word():
 
 if __name__ == "__main__":
     app.run()
+
