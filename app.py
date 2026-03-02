@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, redirect, url_for
 from analysis import process_result
 import io
 import uuid
@@ -72,6 +72,14 @@ def home():
     return render_template("index.html")
 
 
+@app.route("/download/<file_id>")
+def download_page(file_id):
+    entry = get_entry(file_id)
+    if not entry or not entry.get("excel") or not entry.get("word"):
+        return render_reupload_message()
+    return render_template("download.html", file_id=file_id)
+
+
 @app.route("/upload", methods=["POST"])
 def upload():
     file = request.files.get("file")
@@ -114,7 +122,7 @@ def upload():
         entry["word"] = _to_bytes(result["word_file"])
 
     start_expiry_timer(file_id, delay_seconds=600)
-    return render_template("download.html", file_id=file_id)
+    return redirect(url_for("download_page", file_id=file_id))
 
 
 @app.route("/submit_subjects/<file_id>", methods=["POST"])
@@ -151,7 +159,7 @@ def submit_subjects(file_id):
         latest_entry["word"] = _to_bytes(result["word_file"])
 
     start_expiry_timer(file_id, delay_seconds=600)
-    return render_template("download.html", file_id=file_id)
+    return redirect(url_for("download_page", file_id=file_id))
 
 
 @app.route("/submit_teachers/<file_id>", methods=["POST"])
@@ -190,7 +198,7 @@ def submit_teachers(file_id):
         latest_entry["word"] = _to_bytes(result["word_file"])
 
     start_expiry_timer(file_id, delay_seconds=600)
-    return render_template("download.html", file_id=file_id)
+    return redirect(url_for("download_page", file_id=file_id))
 
 
 @app.route("/download_excel")
