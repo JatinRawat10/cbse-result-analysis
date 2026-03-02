@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, url_for, redirect
+from flask import Flask, render_template, request, send_file, url_for, redirect␊
 from analysis import process_result
 import io
 import uuid
@@ -180,12 +180,14 @@ def submit_teachers(file_id):
 # Download endpoints — do NOT remove entry on download (user wanted multiple downloads/refresh)
 @app.route("/download_excel")
 def download_excel():
-    session_id = session.get("session_id")
+    file_id = request.args.get("file_id")
 
-    if not session_id or session_id not in file_store:
-        return "File expired or not found. Please upload again."
+    with storage_lock:
+        entry = temporary_storage.get(file_id) if file_id else None
+    if not entry or not entry.get("excel"):
+        return "File expired or not found. Please upload again.", 410
 
-    stored_excel = file_store[session_id]["excel"]
+    stored_excel = entry["excel"]
     stored_excel.seek(0)
 
     return send_file(
@@ -198,12 +200,14 @@ def download_excel():
 
 @app.route("/download_word")
 def download_word():
-    session_id = session.get("session_id")
+    file_id = request.args.get("file_id")
 
-    if not session_id or session_id not in file_store:
-        return "File expired or not found. Please upload again."
+    with storage_lock:
+        entry = temporary_storage.get(file_id) if file_id else None
+    if not entry or not entry.get("word"):
+        return "File expired or not found. Please upload again.", 410
 
-    stored_word = file_store[session_id]["word"]
+    stored_word = entry["word"]
     stored_word.seek(0)
 
     return send_file(
@@ -229,4 +233,5 @@ def status(file_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
