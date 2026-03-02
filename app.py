@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, url_for, redirect␊
+from flask import Flask, render_template, request, send_file, url_for, redirect
 from analysis import process_result
 import io
 import uuid
@@ -233,5 +233,6 @@ def status(file_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
