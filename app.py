@@ -43,6 +43,10 @@ def start_expiry_timer(file_id, delay_seconds=600):
         timer.daemon = True
         timer.start()
 
+
+def render_reupload_message():
+    return render_template("session_expired.html"), 410
+
 # Home: your upload page (render index.html - keep your existing template)
 @app.route("/")
 def home():
@@ -109,7 +113,7 @@ def submit_subjects(file_id):
     with storage_lock:
         entry = temporary_storage.get(file_id)
     if not entry:
-        return "Session expired or invalid upload. Please upload again.", 410
+        return render_reupload_message()
 
     # Collect mappings submitted by the user: form fields like name="184" value="English"
     subject_inputs = {k: v for k, v in request.form.items() if v.strip()}
@@ -147,7 +151,7 @@ def submit_teachers(file_id):
     with storage_lock:
         entry = temporary_storage.get(file_id)
     if not entry:
-        return "Session expired or invalid upload. Please upload again.", 410
+        return render_reupload_message()
 
     teacher_inputs = {k: v for k, v in request.form.items() if v.strip()}
     with storage_lock:
@@ -185,7 +189,7 @@ def download_excel():
     with storage_lock:
         entry = temporary_storage.get(file_id) if file_id else None
     if not entry or not entry.get("excel"):
-        return "File expired or not found. Please upload again.", 410
+        return render_reupload_message()
 
     stored_excel = entry["excel"]
     stored_excel.seek(0)
@@ -205,7 +209,7 @@ def download_word():
     with storage_lock:
         entry = temporary_storage.get(file_id) if file_id else None
     if not entry or not entry.get("word"):
-        return "File expired or not found. Please upload again.", 410
+        return render_reupload_message()
 
     stored_word = entry["word"]
     stored_word.seek(0)
@@ -233,6 +237,3 @@ def status(file_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
-
