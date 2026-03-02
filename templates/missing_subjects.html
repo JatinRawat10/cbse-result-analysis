@@ -40,7 +40,9 @@ body {
         </p>
     </div>
 
-    <form action="/submit_subjects" method="POST" class="space-y-6">
+    <form action="{{ url_for('submit_subjects', file_id=file_id) }}" 
+      method="POST" 
+      class="space-y-6">
 
         {% for code in codes %}
         <div class="bg-white/5 border border-white/20 rounded-2xl p-6 hover:bg-white/10 transition">
