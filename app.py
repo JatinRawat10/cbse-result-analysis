@@ -57,6 +57,16 @@ def render_reupload_message():
     return render_template("expired_session.html"), 410
 
 
+def _to_bytes(file_obj):
+    if file_obj is None:
+        return None
+    if isinstance(file_obj, bytes):
+        return file_obj
+    if hasattr(file_obj, "getvalue"):
+        return file_obj.getvalue()
+    return bytes(file_obj)
+
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -100,8 +110,8 @@ def upload():
         entry = temporary_storage.get(file_id)
         if not entry:
             return render_reupload_message()
-        entry["excel"] = result["excel_file"]
-        entry["word"] = result["word_file"]
+        entry["excel"] = _to_bytes(result["excel_file"])
+        entry["word"] = _to_bytes(result["word_file"])
 
     start_expiry_timer(file_id, delay_seconds=600)
     return render_template("download.html", file_id=file_id)
@@ -137,8 +147,8 @@ def submit_subjects(file_id):
         latest_entry = temporary_storage.get(file_id)
         if not latest_entry:
             return render_reupload_message()
-        latest_entry["excel"] = result["excel_file"]
-        latest_entry["word"] = result["word_file"]
+        latest_entry["excel"] = _to_bytes(result["excel_file"])
+        latest_entry["word"] = _to_bytes(result["word_file"])
 
     start_expiry_timer(file_id, delay_seconds=600)
     return render_template("download.html", file_id=file_id)
@@ -176,8 +186,8 @@ def submit_teachers(file_id):
         latest_entry = temporary_storage.get(file_id)
         if not latest_entry:
             return render_reupload_message()
-        latest_entry["excel"] = result["excel_file"]
-        latest_entry["word"] = result["word_file"]
+        latest_entry["excel"] = _to_bytes(result["excel_file"])
+        latest_entry["word"] = _to_bytes(result["word_file"])
 
     start_expiry_timer(file_id, delay_seconds=600)
     return render_template("download.html", file_id=file_id)
@@ -190,8 +200,7 @@ def download_excel():
     if not entry or not entry.get("excel"):
         return render_reupload_message()
 
-    stored_excel = entry["excel"]
-    stored_excel.seek(0)
+    stored_excel = io.BytesIO(entry["excel"])
 
     return send_file(
         stored_excel,
@@ -208,8 +217,7 @@ def download_word():
     if not entry or not entry.get("word"):
         return render_reupload_message()
 
-    stored_word = entry["word"]
-    stored_word.seek(0)
+    stored_word = io.BytesIO(entry["word"])
 
     return send_file(
         stored_word,
