@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Expired</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+}
+
+.bg-gradient-flow {
+    background: linear-gradient(-45deg, #4F46E5, #DB2777, #7C3AED, #E11D48);
+    background-size: 400% 400%;
+    animation: gradientFlow 15s ease infinite;
+}
+
+@keyframes gradientFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+</style>
+</head>
+
+<body class="bg-gradient-flow min-h-screen flex items-center justify-center p-6 text-white">
+
+<div class="w-full max-w-xl bg-white/10 backdrop-blur-3xl border border-white/20 rounded-[2.5rem] shadow-2xl p-12 text-center">
+
+    <div class="text-6xl mb-6">⏳</div>
+
+    <h1 class="text-4xl font-bold tracking-tight mb-4">
+        Session Expired
+    </h1>
+
+    <p class="text-white/80 text-lg mb-10">
+        Your download link expired after 10 minutes. Please re-upload your file to generate a new report.
+    </p>
+
+    <a href="{{ url_for('home') }}"
+       class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
+        Re-upload File
+    </a>
+
+</div>
+
+</body>
+</html>
