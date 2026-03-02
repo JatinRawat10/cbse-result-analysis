@@ -178,40 +178,40 @@ def submit_teachers(file_id):
 
 
 # Download endpoints — do NOT remove entry on download (user wanted multiple downloads/refresh)
-@app.route("/download_excel/<file_id>")
-def download_excel(file_id):
-    with storage_lock:
-        entry = temporary_storage.get(file_id)
-    if not entry or not entry.get("excel"):
-        return "File not found or expired. Please re-run upload if needed.", 410
+@app.route("/download_excel")
+def download_excel():
+    session_id = session.get("session_id")
 
-    excel_io = entry["excel"]
-    excel_io.seek(0)
-    # do NOT delete here (so refresh or repeated downloads work)
+    if not session_id or session_id not in file_store:
+        return "File expired or not found. Please upload again."
+
+    stored_excel = file_store[session_id]["excel"]
+    stored_excel.seek(0)
+
     return send_file(
-        excel_io,
+        stored_excel,
         as_attachment=True,
         download_name="CBSE_Result.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
 
-@app.route("/download_word/<file_id>")
-def download_word(file_id):
-    with storage_lock:
-        entry = temporary_storage.get(file_id)
-    if not entry or not entry.get("word"):
-        return "File not found or expired. Please re-run upload if needed.", 410
+@app.route("/download_word")
+def download_word():
+    session_id = session.get("session_id")
 
-    word_io = entry["word"]
-    word_io.seek(0)
+    if not session_id or session_id not in file_store:
+        return "File expired or not found. Please upload again."
+
+    stored_word = file_store[session_id]["word"]
+    stored_word.seek(0)
+
     return send_file(
-        word_io,
+        stored_word,
         as_attachment=True,
         download_name="CBSE_Forms.docx",
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
-
 
 # Optional: a route to check status (debugging)
 @app.route("/status/<file_id>")
@@ -229,3 +229,4 @@ def status(file_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
