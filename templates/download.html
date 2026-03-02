@@ -47,12 +47,12 @@ body {
     <!-- Download Buttons -->
     <div class="space-y-4">
 
-        <a href="/download_excel"
+        <a href="{{ url_for('download_excel', file_id=file_id) }}"
            class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
             Download Excel Report
         </a>
 
-        <a href="/download_word"
+        <a href="{{ url_for('download_word', file_id=file_id) }}"
            class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
             Download Word Forms
         </a>
