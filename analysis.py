@@ -47,9 +47,6 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
     }
 
     teacher_map = {
-        "English": "Mudita",
-        "Hindi-B": "Chapma",
-        "Maths Standard": "Gotham",
     }
 
     # Allow overrides from the web UI (so UI can resubmit with mappings)
@@ -531,3 +528,4 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
         "excel_file": excel_buffer,
         "word_file": word_buffer
     }
+
