@@ -229,6 +229,24 @@ def download_word(file_id):
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
+@app.route("/report/<file_id>")
+def report_page(file_id):
+    entry = get_entry(file_id)
+    if not entry:
+        return render_reupload_message()
+
+    return render_template("download.html", file_id=file_id)
+
+
+@app.route("/result/<file_id>")
+def result_page(file_id):
+    entry = get_entry(file_id)
+    if not entry:
+        return render_reupload_message()
+
+    return render_template("download.html", file_id=file_id)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
+
