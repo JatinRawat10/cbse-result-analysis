@@ -1,63 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Report Ready</title>
+
+<title>Report Generated</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
 <style>
-body {
-    margin: 0;
-    font-family: 'Inter', sans-serif;
+
+body{
+margin:0;
+font-family: Inter, sans-serif;
 }
 
-.bg-gradient-flow {
-    background: linear-gradient(-45deg, #4F46E5, #DB2777, #7C3AED, #E11D48);
-    background-size: 400% 400%;
-    animation: gradientFlow 15s ease infinite;
+.bg-gradient-flow{
+background: linear-gradient(-45deg,#4F46E5,#DB2777,#7C3AED,#E11D48);
+background-size:400% 400%;
+animation:gradientFlow 15s ease infinite;
 }
 
-@keyframes gradientFlow {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+@keyframes gradientFlow{
+0%{background-position:0% 50%}
+50%{background-position:100% 50%}
+100%{background-position:0% 50%}
 }
+
 </style>
+
 </head>
 
-<body class="bg-gradient-flow min-h-screen flex items-center justify-center p-6 text-white">
+<body class="bg-gradient-flow min-h-screen flex flex-col items-center justify-start text-white p-6">
 
+<!-- TOP NAVIGATION -->
+<div class="mt-8 mb-16">
+
+<div class="flex gap-4 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 shadow-xl">
+
+<a href="{{ url_for('download_page', file_id=file_id) }}"
+class="px-6 py-2 bg-white text-indigo-900 rounded-full font-semibold shadow">
+⬇ Download Page
+</a>
+
+<a href="{{ url_for('report_page', file_id=file_id) }}"
+class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-full transition">
+📄 Report Page
+</a>
+
+<a href="{{ url_for('result_page', file_id=file_id) }}"
+class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-full transition">
+📊 Result Page
+</a>
+
+</div>
+
+</div>
+
+
+<!-- MAIN CARD -->
 <div class="w-full max-w-xl bg-white/10 backdrop-blur-3xl border border-white/20 rounded-[2.5rem] shadow-2xl p-12 text-center">
 
-    <!-- Success Icon -->
-    <div class="text-6xl mb-6">
-        ✅
-    </div>
+<div class="text-6xl mb-6">
+✅
+</div>
 
-    <h1 class="text-4xl font-bold tracking-tight mb-4">
-        Report Generated Successfully
-    </h1>
+<h1 class="text-4xl font-bold mb-4">
+Report Generated Successfully
+</h1>
 
-    <p class="text-white/70 text-lg mb-10">
-        Your CBSE result analysis files are ready for download.
-    </p>
+<p class="text-white/80 text-lg mb-10">
+Your CBSE result analysis files are ready for download.
+</p>
 
-    <!-- Download Buttons -->
-    <div class="space-y-4">
+<div class="space-y-6">
 
-        <a href="{{ url_for('download_excel', file_id=file_id) }}"
-           class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
-            Download Excel Report
-        </a>
+<a href="{{ url_for('download_excel', file_id=file_id) }}"
+class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
+📥 Download Excel Report
+</a>
 
-        <a href="{{ url_for('download_word', file_id=file_id) }}"
-           class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
-            Download Word Forms
-        </a>
+<a href="{{ url_for('download_word', file_id=file_id) }}"
+class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
+📄 Download Word Forms
+</a>
 
-    </div>
+</div>
 
 </div>
 
