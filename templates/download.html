@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Report Generated</title>
+<title>Result Analyzer</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
 body{
 margin:0;
-font-family: Inter, sans-serif;
+font-family:Inter,sans-serif;
 }
 
 .bg-gradient-flow{
@@ -28,67 +29,431 @@ animation:gradientFlow 15s ease infinite;
 100%{background-position:0% 50%}
 }
 
+/* TAB BUTTONS */
+
+.tab-btn{
+background:rgba(255,255,255,0.2);
+transition:all 0.3s ease;
+color:white;
+}
+
+.tab-btn:hover{
+background:rgba(255,255,255,0.35);
+}
+
+.tab-btn.active{
+background:white;
+color:#1e1b4b;
+font-weight:600;
+}
+
+/* SECTIONS */
+
+.section{
+opacity:0;
+transform:translateY(20px);
+transition:all 0.4s ease;
+display:none;
+}
+
+.section.active{
+display:block;
+opacity:1;
+transform:translateY(0);
+}
+
+/* STAT CARDS */
+
+.stat-card{
+transition:all 0.25s ease;
+}
+
+.stat-card:hover{
+transform:translateY(-5px) scale(1.02);
+background:rgba(255,255,255,0.25);
+}
+
 </style>
 
 </head>
 
-<body class="bg-gradient-flow min-h-screen flex flex-col items-center justify-start text-white p-6">
+<body class="bg-gradient-flow min-h-screen text-white flex flex-col items-center p-8">
 
-<!-- TOP NAVIGATION -->
-<div class="mt-8 mb-16">
+<!-- TOP TABS -->
+<div class="flex gap-4 mb-12 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 shadow-lg">
 
-<div class="flex gap-4 bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 shadow-xl">
+<button id="tab-download"
+onclick="showTab('download')"
+class="tab-btn px-6 py-2 rounded-full">
+Download
+</button>
 
-<a href="{{ url_for('download_page', file_id=file_id) }}"
-class="px-6 py-2 bg-white text-indigo-900 rounded-full font-semibold shadow">
-⬇ Download Page
-</a>
+<button id="tab-report"
+onclick="showTab('report')"
+class="tab-btn px-6 py-2 rounded-full">
+Report
+</button>
 
-<a href="{{ url_for('report_page', file_id=file_id) }}"
-class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-full transition">
-📄 Report Page
-</a>
-
-<a href="{{ url_for('result_page', file_id=file_id) }}"
-class="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-full transition">
-📊 Result Page
-</a>
+<button id="tab-result"
+onclick="showTab('result')"
+class="tab-btn px-6 py-2 rounded-full">
+Result
+</button>
 
 </div>
 
-</div>
 
+<!-- DOWNLOAD SECTION -->
+<div id="download" class="section active w-full max-w-xl bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] shadow-2xl p-10 text-center">
 
-<!-- MAIN CARD -->
-<div class="w-full max-w-xl bg-white/10 backdrop-blur-3xl border border-white/20 rounded-[2.5rem] shadow-2xl p-12 text-center">
+<div class="text-5xl mb-6">✅</div>
 
-<div class="text-6xl mb-6">
-✅
-</div>
-
-<h1 class="text-4xl font-bold mb-4">
+<h1 class="text-3xl font-bold mb-4">
 Report Generated Successfully
 </h1>
 
-<p class="text-white/80 text-lg mb-10">
+<p class="text-white/80 mb-8">
 Your CBSE result analysis files are ready for download.
 </p>
 
-<div class="space-y-6">
+<div class="space-y-4">
 
 <a href="{{ url_for('download_excel', file_id=file_id) }}"
-class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
-📥 Download Excel Report
+class="block bg-white text-indigo-900 py-3 rounded-lg font-semibold">
+Download Excel Report
 </a>
 
 <a href="{{ url_for('download_word', file_id=file_id) }}"
-class="block w-full h-14 bg-white text-indigo-950 font-bold text-lg rounded-xl shadow-xl hover:bg-white/90 hover:scale-[1.02] transition flex items-center justify-center">
-📄 Download Word Forms
+class="block bg-white text-indigo-900 py-3 rounded-lg font-semibold">
+Download Word Forms
 </a>
 
 </div>
 
 </div>
+
+
+<!-- REPORT SECTION -->
+<div id="report" class="section w-full max-w-5xl bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] shadow-2xl p-10">
+
+<h2 class="text-3xl font-bold mb-10 text-center">Result Overview</h2>
+
+<!-- STUDENT STATS -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+
+<div class="stat-card bg-white/20 rounded-xl p-5 text-center">
+<p class="text-sm text-white/70">Total Students</p>
+<p class="text-2xl font-bold">{{ analytics.total_students }}</p>
+</div>
+
+<div class="stat-card bg-white/20 rounded-xl p-5 text-center">
+<p class="text-sm text-white/70">Present</p>
+<p class="text-2xl font-bold">{{ analytics.present_students }}</p>
+</div>
+
+<div class="stat-card bg-white/20 rounded-xl p-5 text-center">
+<p class="text-sm text-white/70">Absent</p>
+<p class="text-2xl font-bold">{{ analytics.absent_students }}</p>
+</div>
+
+<div class="stat-card bg-white/20 rounded-xl p-5 text-center">
+<p class="text-sm text-white/70">School Average</p>
+<p class="text-2xl font-bold">{{ analytics.school_avg }}%</p>
+</div>
+
+</div>
+
+
+<!-- PERFORMANCE -->
+<h3 class="text-xl font-semibold mb-4">Performance</h3>
+
+<div class="grid grid-cols-3 gap-6 mb-10">
+
+<div class="stat-card bg-white/20 rounded-xl p-5 text-center">
+<p class="text-sm text-white/70">Pass %</p>
+<p class="text-2xl font-bold text-green-300">{{ analytics.pass_percent }}%</p>
+</div>
+
+<div class="stat-card bg-white/20 rounded-xl p-5 text-center">
+<p class="text-sm text-white/70">Fail %</p>
+<p class="text-2xl font-bold text-red-300">{{ analytics.fail_percent }}%</p>
+</div>
+
+<div class="stat-card bg-white/20 rounded-xl p-5 text-center">
+<p class="text-sm text-white/70">Compartment %</p>
+<p class="text-2xl font-bold text-yellow-300">{{ analytics.compartment_percent }}%</p>
+</div>
+
+</div>
+
+
+<!-- TOPPER STATS -->
+<div class="grid grid-cols-2 gap-6 mb-10">
+
+<div class="stat-card bg-white/20 rounded-xl p-5">
+<p class="text-sm text-white/70">Highest Percentage</p>
+<p class="text-2xl font-bold">{{ analytics.highest_percent }}</p>
+</div>
+
+<div class="stat-card bg-white/20 rounded-xl p-5">
+<p class="text-sm text-white/70">Students with All A1</p>
+<p class="text-2xl font-bold">{{ analytics.all_A1 }}</p>
+</div>
+
+</div>
+
+
+<!-- TOP STUDENTS -->
+<h3 class="text-xl font-semibold mb-4">Top Students</h3>
+
+<div class="bg-white/20 rounded-xl p-6">
+
+<ul class="space-y-3">
+
+{% for name, marks in analytics.top5.items() %}
+
+<li class="flex justify-between items-center bg-white/10 px-4 py-2 rounded-lg">
+<span class="font-medium">{{ name }}</span>
+<span class="font-bold text-indigo-200">{{ marks }}%</span>
+</li>
+
+{% endfor %}
+
+</ul>
+
+</div>
+
+</div>
+
+
+<!-- RESULT SECTION -->
+<div id="result" class="section w-full max-w-7xl mx-auto bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] shadow-2xl p-12">
+
+  <h2 class="text-4xl font-bold text-center mb-12">📊 Result Dashboard</h2>
+
+  <!-- DOUGHNUT CHART -->
+  <div class="flex justify-center mb-12">
+    <div class="bg-white/6 rounded-2xl p-6 shadow-lg w-[420px]">
+      <canvas id="resultPieChart" aria-label="Result distribution chart" role="img"></canvas>
+    </div>
+  </div>
+
+  <h2 class="text-2xl font-bold text-center mb-8">📊 Subject-wise Grade Distribution</h2>
+
+  <div id="subjectCharts" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 px-2"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+/* -----------------------------------
+   Tab switching (only render on Result)
+   ----------------------------------- */
+function showTab(tab) {
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  const sec = document.getElementById(tab);
+  if (sec) sec.classList.add("active");
+  const btn = document.getElementById("tab-" + tab);
+  if (btn) btn.classList.add("active");
+
+  if (tab === "result") {
+    renderCharts();
+  }
+}
+showTab("download");
+</script>
+
+<script>
+/* -------------------------
+   Safe Jinja values (defaults)
+   -------------------------*/
+/* eslint-disable no-unused-vars */
+const _PASS = {{ analytics.pass_percent | default(0) }};
+const _FAIL = {{ analytics.fail_percent | default(0) }};
+const _COMP = {{ analytics.compartment_percent | default(0) }};
+const _SUBJECT_DATA = {{ (analytics.subject_grade_distribution | default({})) | tojson }};
+/* eslint-enable no-unused-vars */
+
+/* -------------------------
+   Chart rendering function
+   -------------------------*/
+function renderCharts() {
+  // If charts already rendered, do nothing (prevents duplicates)
+  if (window._cbse_charts_rendered) return;
+  window._cbse_charts_rendered = true;
+
+  // Keep references so we can destroy later if needed
+  window._cbse_chart_instances = window._cbse_chart_instances || [];
+
+  /* ------------------ Doughnut (Result) ------------------ */
+  try {
+    const pass = Number(_PASS) || 0;
+    const fail = Number(_FAIL) || 0;
+    const comp = Number(_COMP) || 0;
+
+    const ctx = document.getElementById("resultPieChart").getContext("2d");
+
+    // create doughnut
+    const dough = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: ["Pass", "Compartment", "Fail"],
+        datasets: [{
+          data: [pass, comp, fail],
+          backgroundColor: ["#22c55e", "#f59e0b", "#ef4444"],
+          hoverOffset: 12,
+          borderWidth: 0
+        }]
+      },
+      options: {
+        cutout: "68%",
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: 8 },
+        animation: { duration: 800, easing: "easeOutQuart" },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              color: "#f8fafc",
+              padding: 14,
+              font: { size: 14, weight: "600" },
+              usePointStyle: true,
+              pointStyle: "rectRounded"
+            }
+          },
+          tooltip: {
+            backgroundColor: "#0b1220",
+            titleColor: "#ffffff",
+            bodyColor: "#e2e8f0",
+            cornerRadius: 6,
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.raw ?? 0;
+                return `${ctx.label}: ${v}%`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    window._cbse_chart_instances.push(dough);
+  } catch (e) {
+    // fail silently but log for debugging
+    // console.error("Doughnut chart error:", e);
+  }
+
+  /* ------------------ Subject grade bars ------------------ */
+  try {
+    const subjectData = _SUBJECT_DATA || {};
+    const container = document.getElementById("subjectCharts");
+
+    // If no subject data, show a friendly message
+    if (!subjectData || Object.keys(subjectData).length === 0) {
+      const msg = document.createElement("div");
+      msg.className = "col-span-1 md:col-span-2 lg:col-span-3 bg-white/6 p-8 rounded-xl text-center text-white/80";
+      msg.innerText = "No subject grade distribution data available.";
+      container.appendChild(msg);
+      return;
+    }
+
+    const grades = ["A1","A2","B1","B2","C1","C2","D1","D2","E"];
+
+    // create charts for each subject
+    for (const subject of Object.keys(subjectData)) {
+      const countsObj = subjectData[subject] || {};
+
+      // build card
+      const card = document.createElement("div");
+      card.className = "bg-white/6 backdrop-blur-xl rounded-xl p-6 shadow-md";
+
+      const title = document.createElement("h3");
+      title.className = "text-center text-base md:text-lg font-semibold mb-4 text-white";
+      title.innerText = subject + " Grades";
+      card.appendChild(title);
+
+      const canvas = document.createElement("canvas");
+      canvas.style.height = "260px"; // fixed height to keep charts uniform
+      card.appendChild(canvas);
+
+      container.appendChild(card);
+
+      // data array aligned with grades
+      const dataArr = grades.map(g => Number(countsObj[g] || 0));
+
+      // create bar chart
+      const bar = new Chart(canvas.getContext("2d"), {
+        type: "bar",
+        data: {
+          labels: grades,
+          datasets: [{
+            label: "Students",
+            data: dataArr,
+            backgroundColor: [
+              "#3b82f6","#60a5fa","#93c5fd",
+              "#22c55e","#34d399","#f59e0b",
+              "#f97316","#ef4444","#a855f7"
+            ],
+            borderRadius: 8,
+            borderSkipped: false,
+            barPercentage: 0.72,
+            categoryPercentage: 0.72
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 900, easing: "easeOutQuart" },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#0b1220",
+              titleColor: "#ffffff",
+              bodyColor: "#dbeafe",
+              padding: 10,
+              cornerRadius: 6
+            }
+          },
+          layout: { padding: { top: 6, bottom: 4 } },
+          scales: {
+            x: {
+              ticks: { color: "#e6eef8", font: { size: 12, weight: "600" } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: "#cbd5f5", font: { size: 12 } },
+              grid: { color: "rgba(255,255,255,0.04)" },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      window._cbse_chart_instances.push(bar);
+    }
+  } catch (e) {
+    // console.error("Subject charts error:", e);
+  }
+}
+
+/* Optional: helper to destroy charts (if you want to re-render later) */
+function destroyCbseCharts() {
+  if (window._cbse_chart_instances && window._cbse_chart_instances.length) {
+    window._cbse_chart_instances.forEach(c => {
+      try { c.destroy(); } catch (e) {}
+    });
+  }
+  window._cbse_chart_instances = [];
+  window._cbse_charts_rendered = false;
+}
+</script>
+
+<style>
+/* keep canvas heights limited so they don't stretch */
+canvas { max-height: 320px; }
+</style>
 
 </body>
 </html>
