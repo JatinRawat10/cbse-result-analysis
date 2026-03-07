@@ -68,6 +68,26 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
     all_subjects = set()
     missing_subject_codes = set()
 
+    # helper to detect result token in the surrounding lines (non-destructive)
+    def detect_result_token(check_lines):
+        # returns normalized token or None
+        # check for RL, ABST, COMP, PASS, ER/FAIL, WITHHELD
+        for s in check_lines:
+            if not s:
+                continue
+            # common RL forms
+            if re.search(r'\bR\.?L\.?\b', s, re.I) or re.search(r'\bRESULT\s+LATER\b', s, re.I) or re.search(r'\bWITHHELD\b', s, re.I):
+                return "R.L."
+            if re.search(r'\bABST\b', s, re.I) or re.search(r'\bAB\b', s, re.I) or re.search(r'\bABSENT\b', s, re.I):
+                return "ABSENT"
+            if re.search(r'\bCOMP\b', s, re.I) or re.search(r'\bCOMPARTMENT\b', s, re.I):
+                return "COMP"
+            if re.search(r'\bPASS\b', s, re.I):
+                return "PASS"
+            if re.search(r'\bER\b', s, re.I) or re.search(r'\bFAIL\b', s, re.I):
+                return "FAIL"
+        return None
+
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -175,7 +195,16 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
             best5_total = english + sum(top4)
             best5_percent = round(best5_total / 5, 2)
 
-            # Store student record (structure identical)
+            # --- Detect RESULT token from the student block (original line + a few following lines)
+            # We'll check the current student line and up to two following lines for result keywords
+            check_block = [line]
+            # i currently points to the line after the student line (or the marks line). Grab next up-to-2 lines safely.
+            for k in range(i, min(i+3, len(lines))):
+                check_block.append(lines[k])
+
+            result_token = detect_result_token(check_block)  # may be None
+
+            # Store student record (structure identical) plus Result token
             students[roll] = {
                 "Gender": gender,
                 "Name": name,
@@ -184,12 +213,13 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
                 "Main5_Total": main5_total,
                 "Main5_Percent": main5_percent,
                 "Best5_Total": best5_total,
-                "Best5_Percent": best5_percent
+                "Best5_Percent": best5_percent,
+                "Result": result_token
             }
 
         i += 1
 
-    # If any unknown subject codes found, return them so UI can ask user to map (Flask flow)
+    # If any unknown subject codes found, return them so UI can ask (Flask flow)
     if missing_subject_codes:
         return {"missing_subjects": sorted(list(missing_subject_codes))}
 
@@ -233,9 +263,15 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
         marks = info["Marks"]
         grades = info["Grades"]
 
-        # detect ABSENT (all marks = 0)
-        is_absent = all(m == 0 for m in marks.values())
+        # detect ABSENT using Result token if present, else fallback to marks-based
+        result_tok = info.get("Result")
+        if result_tok == "ABSENT":
+            continue   # ← DO NOT include absent students in compartment list
+        if result_tok == "R.L.":
+            continue   # ← DO NOT include RL in compartment list (RL should be excluded)
 
+        # fallback: keep original logic if no explicit token
+        is_absent = all(m == 0 for m in marks.values())
         if is_absent:
             continue   # ← DO NOT include absent students in compartment list
 
@@ -286,6 +322,13 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
     eligible_students = []
     for roll, info in students.items():
         marks = info["Marks"]
+        # determine absence/RL from Result token first, fallback to marks-based
+        result_tok = info.get("Result")
+        if result_tok == "ABSENT":
+            continue
+        if result_tok == "R.L.":
+            continue
+
         is_absent = all(m == 0 for m in marks.values()) if marks else True
         if is_absent:
             continue
@@ -337,30 +380,51 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
     doc.add_paragraph("")
 
     total_students = len(students)
+
     present_students = 0
     absent_students = 0
+    rl_students = 0
     failed_students = 0
     compartment_students = 0
+    pass_students = 0
 
     grade_count = {"A1":0,"A2":0,"B1":0,"B2":0,"C1":0,"C2":0,"D1":0,"D2":0,"E":0}
+
     total_main5_sum = 0
     valid_main5_students = 0
     highest_percent = 0
-    A1_inall_sub=0
+    A1_inall_sub = 0
 
     for roll, info in students.items():
+
         marks = info["Marks"]
-        # preserve your requirement: use first 5 grades extracted (if any)
         grades_list_for_main5 = list(info["Grades"].values())[:5]
 
+        result_token = info.get("Result")
+
+        # ===== RESULT PRIORITY =====
+
+        if result_token == "ABSENT":
+            absent_students += 1
+            continue
+
+        if result_token == "R.L.":
+            rl_students += 1
+            present_students += 1
+            continue
+
+        # ===== MARKS BASED FALLBACK =====
+
         is_absent = all(m == 0 for m in marks.values())
+
         if is_absent:
             absent_students += 1
             continue
 
         present_students += 1
 
-        # ----- GRADE COUNT USING GRADES FROM TXT FILE -----
+        # ===== GRADE DISTRIBUTION =====
+
         for g in grades_list_for_main5:
             if g in grade_count:
                 grade_count[g] += 1
@@ -368,7 +432,10 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
         if grades_list_for_main5.count("A1") == 5:
             A1_inall_sub += 1
 
+        # ===== MAIN 5 CALCULATIONS =====
+
         p = info["Main5_Percent"]
+
         if p > 0:
             total_main5_sum += p
             valid_main5_students += 1
@@ -376,31 +443,61 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
 
         main5_subjects = list(info["Marks"].keys())[:5]
         main5_marks = [info["Marks"][x] for x in main5_subjects]
+
         fail_count = sum(1 for m in main5_marks if m < PASS_MARK)
 
         if fail_count == 0:
-            pass
-        elif fail_count in (1, 2):
+            pass_students += 1
+
+        elif fail_count in (1,2):
             compartment_students += 1
+
         else:
             failed_students += 1
+
+
+    # ===== SCHOOL AVERAGE =====
 
     if valid_main5_students > 0:
         school_avg = round(total_main5_sum / valid_main5_students, 2)
     else:
         school_avg = 0
 
-    total_grade_slots = present_students * 5 if present_students > 0 else 1
+
+    # ===== EVALUATED STUDENTS =====
+
+    evaluated_students = present_students - rl_students
+
+
+    # ===== PASS / FAIL / COMPARTMENT % =====
+
+    if evaluated_students > 0:
+
+        pass_percent = round((pass_students / evaluated_students) * 100, 2)
+
+        fail_percent = round((failed_students / evaluated_students) * 100, 2)
+
+        compartment_percent = round((compartment_students / evaluated_students) * 100, 2)
+
+    else:
+
+        pass_percent = 0
+        fail_percent = 0
+        compartment_percent = 0
+
+
+    # ===== SCHOOL SCORE =====
+
+    total_grade_slots = evaluated_students * 5 if evaluated_students > 0 else 1
 
     school_score = round(
-        (
-            9*grade_count["A1"] + 8*grade_count["A2"] +
-            7*grade_count["B1"] + 6*grade_count["B2"] +
-            5*grade_count["C1"] + 4*grade_count["C2"] +
-            3*grade_count["D1"] + 2*grade_count["D2"] +
-            1*grade_count["E"]
-        ) / (9 * total_grade_slots) * 100, 2
-    )
+    (
+    9*grade_count["A1"] + 8*grade_count["A2"] +
+    7*grade_count["B1"] + 6*grade_count["B2"] +
+    5*grade_count["C1"] + 4*grade_count["C2"] +
+    3*grade_count["D1"] + 2*grade_count["D2"] +
+    1*grade_count["E"]
+    ) / (9 * total_grade_slots) * 100, 2)
 
     table = doc.add_table(rows=1, cols=4)
     table.style = "Table Grid"
@@ -413,9 +510,9 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
     rows_data = [
         ("1", "Total Students Appeared", present_students, round(present_students/(present_students+absent_students)*100,2) if (present_students+absent_students)>0 else 0),
         ("2", "Absent Students", absent_students, round(absent_students/(present_students+absent_students)*100,2) if (present_students+absent_students)>0 else 0),
-        ("3", "Passed", present_students - failed_students - compartment_students, round(((present_students - failed_students - compartment_students)/present_students)*100,2) if present_students>0 else 0),
-        ("4", "Compartment", compartment_students, round(compartment_students/(present_students)*100,2) if present_students>0 else 0),
-        ("5", "Failed", failed_students, round(failed_students/(present_students)*100,2) if present_students>0 else 0),
+        ("3", "Passed", pass_students, pass_percent),
+        ("4", "Compartment", compartment_students, compartment_percent),
+        ("5", "Failed", failed_students, fail_percent),
         ("6", "A1 Grades", grade_count["A1"], round((grade_count["A1"]/total_grade_slots)*100,2)),
         ("7", "A2 Grades", grade_count["A2"], round((grade_count["A2"]/total_grade_slots)*100,2)),
         ("8", "B1 Grades", grade_count["B1"], round((grade_count["B1"]/total_grade_slots)*100,2)),
@@ -459,6 +556,7 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
     ])
 
     sno = 1
+    subject_grade_distribution = {}
     for subject in sorted(all_subjects):
 
         # count grades for the subject
@@ -475,6 +573,8 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
                 if grade in grade_counts_sub:
                     grade_counts_sub[grade] += 1
                 total_students_subject += 1
+
+        subject_grade_distribution[subject] = grade_counts_sub
 
         if total_students_subject == 0:
             total_students_subject = 1
@@ -524,8 +624,48 @@ def process_result(uploaded_file, subject_inputs=None, teacher_inputs=None):
     doc.save(word_buffer)
     word_buffer.seek(0)
 
-    return {
-        "excel_file": excel_buffer,
-        "word_file": word_buffer
+    # ===== TOP 5 STUDENTS =====
+    sorted_students = sorted(
+        students.items(),
+        key=lambda x: x[1]["Main5_Percent"],
+        reverse=True
+    )
+
+    top5 = {}
+    for roll, info in sorted_students[:5]:
+        top5[info["Name"]] = info["Main5_Percent"]
+
+
+    # ===== GRADE DISTRIBUTION =====
+    grade_distribution = grade_count
+
+
+    # ===== ANALYTICS OBJECT =====
+    analytics = {
+    "total_students": total_students,
+    "present_students": present_students,
+    "absent_students": absent_students,
+    "result_later": rl_students,
+
+    "pass_percent": pass_percent,
+    "fail_percent": fail_percent,
+    "compartment_percent": compartment_percent,
+
+    "school_avg": school_avg,
+    "highest_percent": highest_percent,
+
+    "all_A1": A1_inall_sub,
+
+    "grade_distribution": grade_count,
+
+    "subject_grade_distribution": subject_grade_distribution,
+
+    "top5": top5
     }
 
+
+    return {
+        "excel_file": excel_buffer,
+        "word_file": word_buffer,
+        "analytics": analytics
+    }
