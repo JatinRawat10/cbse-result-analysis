@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, send_file, redirect, url_for
 from analysis import process_result
+import os
 import io
 import uuid
 import threading
@@ -307,5 +308,11 @@ def result_page(file_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=False
+    )
+
 
