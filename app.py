@@ -140,7 +140,7 @@ def submit_subjects(file_id):
         return render_expired()
 
     # collect non-empty form inputs
-    subject_inputs = {k: v for k, v in request.form.items() if v.strip()}
+    subject_inputs = {k: v for k, v in request.form.items()}
 
     # store subject inputs so they persist
     with storage_lock:
@@ -193,7 +193,7 @@ def submit_teachers(file_id):
     if not entry:
         return render_expired()
 
-    teacher_inputs = {k: v for k, v in request.form.items() if v.strip()}
+    teacher_inputs = {k: v for k, v in request.form.items()}
 
     # store teacher inputs before processing
     with storage_lock:
@@ -308,3 +308,4 @@ def result_page(file_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
