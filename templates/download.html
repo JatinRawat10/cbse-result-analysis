@@ -130,6 +130,11 @@ Download Word Forms
 
 </div>
 
+<div class="mt-6 text-sm text-white/80 text-center">
+⏳ Session expires in <span id="timer">{{ remaining }}</span>
+</div>
+
+
 </div>
 
 
@@ -454,6 +459,33 @@ function destroyCbseCharts() {
 /* keep canvas heights limited so they don't stretch */
 canvas { max-height: 320px; }
 </style>
+
+<script>
+let timeLeft = {{ remaining }};
+
+function formatTime(seconds){
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return minutes + ":" + secs.toString().padStart(2,'0');
+}
+
+function updateTimer(){
+
+    const el = document.getElementById("timer");
+    if(!el) return;
+
+    if(timeLeft <= 0){
+        el.innerText = "Expired";
+        return;
+    }
+
+    el.innerText = formatTime(timeLeft);
+    timeLeft--;
+}
+
+updateTimer();
+setInterval(updateTimer,1000);
+</script>
 
 </body>
 </html>
