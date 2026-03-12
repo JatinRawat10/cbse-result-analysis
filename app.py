@@ -18,7 +18,7 @@ app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 temporary_storage = {}
 storage_lock = threading.Lock()
 
-EXPIRY_SECONDS = 60  # 5 minutes
+EXPIRY_SECONDS = 360  # 5 minutes
 MAX_SESSIONS = 100
 
 # CPU processing limiter
@@ -378,3 +378,4 @@ if __name__ == "__main__":
         port=port,
         debug=False
     )
+
