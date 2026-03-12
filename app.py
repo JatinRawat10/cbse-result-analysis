@@ -8,34 +8,8 @@ import tempfile
 
 app = Flask(__name__)
 
-# =========================
-# Configuration
-# =========================
-
-app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2MB upload limit
-
-EXPIRY_SECONDS = 300
-MAX_SESSIONS = 100
-
-processing_limit = threading.Semaphore(2)
-
-# Temporary directories
-UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "cbse_uploads")
-OUTPUT_DIR = os.path.join(tempfile.gettempdir(), "cbse_outputs")
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# =========================
-# Global session store
-# =========================
-
-temporary_storage = {}
-storage_lock = threading.Lock()
-
-# =========================
-# Error Handling
-# =========================
+# Upload limit: 2 MB
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 
 @app.errorhandler(413)
 def file_too_large(e):
@@ -44,62 +18,142 @@ def file_too_large(e):
     alert("File must be smaller than 2 MB.");
     window.history.back();
     </script>
-    """
+    """, 413
+
+
+# =========================
+# Config
+# =========================
+
+EXPIRY_SECONDS = 300  # 5 minutes
+MAX_SESSIONS = 100
+CLEANUP_INTERVAL = 10  # seconds
+PROCESSING_LIMIT = 2   # max simultaneous processing jobs
+
+processing_limit = threading.Semaphore(PROCESSING_LIMIT)
+storage_lock = threading.Lock()
+
+BASE_TMP_DIR = tempfile.gettempdir()
+UPLOAD_DIR = os.path.join(BASE_TMP_DIR, "cbse_uploads")
+OUTPUT_DIR = os.path.join(BASE_TMP_DIR, "cbse_outputs")
+
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+# =========================
+# In-memory session store
+# =========================
+# {
+#   file_id: {
+#       "txt_path": ...,
+#       "excel_path": ...,
+#       "word_path": ...,
+#       "subject_inputs": {...} or None,
+#       "teacher_inputs": {...} or None,
+#       "analytics": {...} or None,
+#       "created_at": timestamp,
+#       "download_started": timestamp or None
+#   }
+# }
+temporary_storage = {}
+
 
 # =========================
 # Helper Functions
 # =========================
 
-def cleanup_expired():
+def save_output_file(output_obj, out_path):
+    """
+    Save excel/word result to disk.
+    Supports bytes, bytearray, and file-like objects with getvalue()/read().
+    """
+    if output_obj is None:
+        return False
 
+    data = None
+    if isinstance(output_obj, (bytes, bytearray)):
+        data = output_obj
+    elif hasattr(output_obj, "getvalue"):
+        data = output_obj.getvalue()
+    elif hasattr(output_obj, "read"):
+        try:
+            pos = output_obj.tell() if hasattr(output_obj, "tell") else None
+            data = output_obj.read()
+            if pos is not None and hasattr(output_obj, "seek"):
+                output_obj.seek(pos)
+        except Exception:
+            data = None
+
+    if data is None:
+        return False
+
+    with open(out_path, "wb") as f:
+        f.write(data)
+
+    return True
+
+
+def delete_session_files(session):
+    """
+    Delete all files linked to a session.
+    """
+    for path_key in ("txt_path", "excel_path", "word_path"):
+        path = session.get(path_key)
+        if path and os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
+
+def cleanup_expired():
+    """
+    Delete:
+    1) abandoned uploads that never opened the download page
+    2) active download sessions after expiry
+    Also removes their physical files.
+    """
     now = time.time()
+    expired_ids = []
 
     with storage_lock:
-
-        expired = []
-
         for file_id, data in temporary_storage.items():
+            created_at = data.get("created_at")
+            started_at = data.get("download_started")
 
-            created = data["created_at"]
-            started = data.get("download_started")
+            # Abandoned upload: never reached download page
+            if started_at is None:
+                if created_at and (now - created_at > EXPIRY_SECONDS):
+                    expired_ids.append(file_id)
 
-            if started is None:
-                if now - created > EXPIRY_SECONDS:
-                    expired.append(file_id)
-
+            # Normal session after download page opened
             else:
-                if now - started > EXPIRY_SECONDS:
-                    expired.append(file_id)
+                if now - started_at > EXPIRY_SECONDS:
+                    expired_ids.append(file_id)
 
-        for key in expired:
-
-            session = temporary_storage.pop(key, None)
-
+        removed_sessions = []
+        for file_id in expired_ids:
+            session = temporary_storage.pop(file_id, None)
             if session:
+                removed_sessions.append(session)
 
-                for path in [session.get("txt_path"),
-                             session.get("excel_path"),
-                             session.get("word_path")]:
-
-                    if path and os.path.exists(path):
-                        try:
-                            os.remove(path)
-                        except:
-                            pass
+    # Delete files outside the lock
+    for session in removed_sessions:
+        delete_session_files(session)
 
 
 def background_cleanup():
     while True:
-        time.sleep(10)
+        time.sleep(CLEANUP_INTERVAL)
         cleanup_expired()
 
 
 def get_entry(file_id):
-
-    cleanup_expired()
-
     if not file_id:
         return None
+
+    cleanup_expired()
 
     with storage_lock:
         return temporary_storage.get(file_id)
@@ -120,7 +174,6 @@ def home():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-
     file = request.files.get("file")
 
     if not file:
@@ -135,11 +188,11 @@ def upload():
     excel_path = os.path.join(OUTPUT_DIR, f"{file_id}.xlsx")
     word_path = os.path.join(OUTPUT_DIR, f"{file_id}.docx")
 
+    # Save uploaded file to disk, not RAM
     file.save(txt_path)
 
     with storage_lock:
-
-        if len(temporary_storage) > MAX_SESSIONS:
+        if len(temporary_storage) >= MAX_SESSIONS:
             cleanup_expired()
 
         temporary_storage[file_id] = {
@@ -154,27 +207,27 @@ def upload():
         }
 
     try:
-
         with processing_limit:
-
-            result = process_result(txt_path)
+            with open(txt_path, "rb") as f:
+                result = process_result(f)
 
     except Exception as e:
-
         with storage_lock:
-            temporary_storage.pop(file_id, None)
-
+            session = temporary_storage.pop(file_id, None)
+        if session:
+            delete_session_files(session)
         return f"Processing error: {e}", 500
 
-    if "missing_subjects" in result:
+    # Missing subject mapping
+    if isinstance(result, dict) and "missing_subjects" in result:
         return render_template(
             "missing_subjects.html",
             codes=result["missing_subjects"],
             file_id=file_id
         )
 
-    if "missing_teachers" in result:
-
+    # Missing teacher mapping
+    if isinstance(result, dict) and "missing_teachers" in result:
         with storage_lock:
             entry = temporary_storage.get(file_id)
             if entry:
@@ -186,29 +239,139 @@ def upload():
             file_id=file_id
         )
 
+    # Save generated files to disk
     with storage_lock:
-
         entry = temporary_storage.get(file_id)
 
+    if not entry:
+        return render_expired()
+
+    excel_file = result.get("excel_file") if isinstance(result, dict) else None
+    word_file = result.get("word_file") if isinstance(result, dict) else None
+
+    if excel_file:
+        save_output_file(excel_file, entry["excel_path"])
+
+    if word_file:
+        save_output_file(word_file, entry["word_path"])
+
+    with storage_lock:
+        entry = temporary_storage.get(file_id)
         if not entry:
             return render_expired()
+        entry["analytics"] = result.get("analytics") if isinstance(result, dict) else None
 
-        if result.get("excel_file"):
-            with open(entry["excel_path"], "wb") as f:
-                f.write(result["excel_file"].getvalue())
+    return redirect(url_for("download_page", file_id=file_id))
 
-        if result.get("word_file"):
-            with open(entry["word_path"], "wb") as f:
-                f.write(result["word_file"].getvalue())
 
-        entry["analytics"] = result.get("analytics")
+@app.route("/submit_subjects/<file_id>", methods=["POST"])
+def submit_subjects(file_id):
+    entry = get_entry(file_id)
+
+    if not entry:
+        return render_expired()
+
+    subject_inputs = dict(request.form)
+
+    with storage_lock:
+        entry["subject_inputs"] = subject_inputs
+
+    try:
+        with processing_limit:
+            with open(entry["txt_path"], "rb") as f:
+                result = process_result(
+                    f,
+                    subject_inputs=subject_inputs,
+                    teacher_inputs=entry.get("teacher_inputs")
+                )
+    except Exception as e:
+        return f"Processing error: {e}", 500
+
+    if isinstance(result, dict) and "missing_subjects" in result:
+        return render_template(
+            "missing_subjects.html",
+            codes=result["missing_subjects"],
+            file_id=file_id
+        )
+
+    if isinstance(result, dict) and "missing_teachers" in result:
+        with storage_lock:
+            entry["analytics"] = result.get("analytics")
+
+        return render_template(
+            "missing_teachers.html",
+            subjects=result["missing_teachers"],
+            file_id=file_id
+        )
+
+    excel_file = result.get("excel_file") if isinstance(result, dict) else None
+    word_file = result.get("word_file") if isinstance(result, dict) else None
+
+    if excel_file:
+        save_output_file(excel_file, entry["excel_path"])
+
+    if word_file:
+        save_output_file(word_file, entry["word_path"])
+
+    with storage_lock:
+        entry = temporary_storage.get(file_id)
+        if not entry:
+            return render_expired()
+        entry["analytics"] = result.get("analytics") if isinstance(result, dict) else None
+
+    return redirect(url_for("download_page", file_id=file_id))
+
+
+@app.route("/submit_teachers/<file_id>", methods=["POST"])
+def submit_teachers(file_id):
+    entry = get_entry(file_id)
+
+    if not entry:
+        return render_expired()
+
+    teacher_inputs = dict(request.form)
+
+    with storage_lock:
+        entry["teacher_inputs"] = teacher_inputs
+
+    try:
+        with processing_limit:
+            with open(entry["txt_path"], "rb") as f:
+                result = process_result(
+                    f,
+                    subject_inputs=entry.get("subject_inputs"),
+                    teacher_inputs=teacher_inputs
+                )
+    except Exception as e:
+        return f"Processing error: {e}", 500
+
+    if isinstance(result, dict) and "missing_teachers" in result:
+        return render_template(
+            "missing_teachers.html",
+            subjects=result["missing_teachers"],
+            file_id=file_id
+        )
+
+    excel_file = result.get("excel_file") if isinstance(result, dict) else None
+    word_file = result.get("word_file") if isinstance(result, dict) else None
+
+    if excel_file:
+        save_output_file(excel_file, entry["excel_path"])
+
+    if word_file:
+        save_output_file(word_file, entry["word_path"])
+
+    with storage_lock:
+        entry = temporary_storage.get(file_id)
+        if not entry:
+            return render_expired()
+        entry["analytics"] = result.get("analytics") if isinstance(result, dict) else None
 
     return redirect(url_for("download_page", file_id=file_id))
 
 
 @app.route("/download/<file_id>")
 def download_page(file_id):
-
     entry = get_entry(file_id)
 
     if not entry:
@@ -217,8 +380,7 @@ def download_page(file_id):
     with storage_lock:
         if entry["download_started"] is None:
             entry["download_started"] = time.time()
-
-    remaining = EXPIRY_SECONDS - (time.time() - entry["download_started"])
+        remaining = EXPIRY_SECONDS - (time.time() - entry["download_started"])
 
     analytics = entry.get("analytics") or {
         "school_avg": 0,
@@ -237,43 +399,74 @@ def download_page(file_id):
 
 @app.route("/download_excel/<file_id>")
 def download_excel(file_id):
-
     entry = get_entry(file_id)
 
     if not entry:
         return render_expired()
 
-    path = entry.get("excel_path")
+    with storage_lock:
+        started = entry.get("download_started")
+        if started and time.time() - started > EXPIRY_SECONDS:
+            session = temporary_storage.pop(file_id, None)
+            if session:
+                delete_session_files(session)
+            return render_expired()
+
+        path = entry.get("excel_path")
 
     if not path or not os.path.exists(path):
         return render_expired()
 
-    return send_file(path, as_attachment=True)
+    return send_file(
+        path,
+        as_attachment=True,
+        download_name="CBSE_Result.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @app.route("/download_word/<file_id>")
 def download_word(file_id):
-
     entry = get_entry(file_id)
 
     if not entry:
         return render_expired()
 
-    path = entry.get("word_path")
+    with storage_lock:
+        started = entry.get("download_started")
+        if started and time.time() - started > EXPIRY_SECONDS:
+            session = temporary_storage.pop(file_id, None)
+            if session:
+                delete_session_files(session)
+            return render_expired()
+
+        path = entry.get("word_path")
 
     if not path or not os.path.exists(path):
         return render_expired()
 
-    return send_file(path, as_attachment=True)
+    return send_file(
+        path,
+        as_attachment=True,
+        download_name="CBSE_Forms.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
 
 
 @app.route("/report/<file_id>")
 def report_page(file_id):
-
     entry = get_entry(file_id)
 
     if not entry:
         return render_expired()
+
+    with storage_lock:
+        started = entry.get("download_started")
+        if started and time.time() - started > EXPIRY_SECONDS:
+            session = temporary_storage.pop(file_id, None)
+            if session:
+                delete_session_files(session)
+            return render_expired()
 
     analytics = entry.get("analytics") or {
         "school_avg": 0,
@@ -295,7 +488,7 @@ def result_page(file_id):
 
 
 # =========================
-# Start Cleanup Thread
+# Start cleanup thread
 # =========================
 
 cleanup_thread = threading.Thread(target=background_cleanup, daemon=True)
@@ -303,9 +496,7 @@ cleanup_thread.start()
 
 
 if __name__ == "__main__":
-
     port = int(os.environ.get("PORT", 5000))
-
     app.run(
         host="0.0.0.0",
         port=port,
