@@ -11,6 +11,15 @@ app = Flask(__name__)
 # Limit upload size (2MB)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 
+@app.errorhandler(413)
+def file_too_large(e):
+    return """
+    <script>
+    alert("File must be smaller than 2 MB.");
+    window.history.back();
+    </script>
+    """
+
 # =========================
 # Global Storage
 # =========================
@@ -378,4 +387,5 @@ if __name__ == "__main__":
         port=port,
         debug=False
     )
+
 
