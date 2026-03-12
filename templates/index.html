@@ -83,6 +83,8 @@ const fileInput = document.getElementById("fileInput");
 const fileName = document.getElementById("fileName");
 const form = document.getElementById("uploadForm");
 
+const maxSize = 2 * 1024 * 1024; // 2MB
+
 dropArea.addEventListener("click", () => fileInput.click());
 
 fileInput.addEventListener("change", (e) => {
@@ -108,6 +110,7 @@ dropArea.addEventListener("drop", (e) => {
 });
 
 function handleFile(file) {
+
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".txt")) {
@@ -117,10 +120,25 @@ function handleFile(file) {
         return;
     }
 
+    if (file.size > maxSize) {
+        alert("File must be smaller than 2 MB.");
+        fileInput.value = "";
+        fileName.classList.add("hidden");
+        return;
+    }
+
     fileName.textContent = "Selected: " + file.name;
     fileName.classList.remove("hidden");
 }
-</script>
 
-</body>
-</html>
+form.addEventListener("submit", function(e){
+
+    const file = fileInput.files[0];
+
+    if(!file){
+        alert("Please select a file.");
+        e.preventDefault();
+    }
+
+});
+</script>
