@@ -111,14 +111,26 @@ def _session_last_seen(session):
 
 
 def _cleanup_expired_locked(now):
+
     expired_ids = []
 
     for file_id, session in temporary_storage.items():
-        last_seen = _session_last_seen(session)
-        if last_seen and now - last_seen > EXPIRY_SECONDS:
-            expired_ids.append(file_id)
+
+        started = session.get("download_started")
+        created = session.get("created_at")
+
+        # If download page was opened
+        if started:
+            if now - started > EXPIRY_SECONDS:
+                expired_ids.append(file_id)
+
+        # If user uploaded but never opened download page
+        elif created:
+            if now - created > EXPIRY_SECONDS:
+                expired_ids.append(file_id)
 
     removed = []
+
     for file_id in expired_ids:
         popped = temporary_storage.pop(file_id, None)
         if popped:
@@ -529,3 +541,4 @@ cleanup_thread.start()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
