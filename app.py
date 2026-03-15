@@ -11,13 +11,18 @@ app = Flask(__name__)
 # =========================
 # Config
 # =========================
+upload_tracker = {}
+UPLOAD_LIMIT = 10    # max uploads
+UPLOAD_WINDOW = 60     # seconds
+
+upload_tracker_lock = threading.Lock()
 
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 
 EXPIRY_SECONDS = 300
-MAX_SESSIONS = 100
+MAX_SESSIONS = 1
 CLEANUP_INTERVAL = 10
-PROCESSING_LIMIT = 2
+PROCESSING_LIMIT = 6
 
 processing_limit = threading.Semaphore(PROCESSING_LIMIT)
 storage_lock = threading.Lock()
@@ -62,6 +67,30 @@ def file_too_large(e):
 # =========================
 # Helpers
 # =========================
+
+def check_rate_limit(ip):
+    now = time.time()
+
+    with upload_tracker_lock:
+
+        uploads = upload_tracker.get(ip, [])
+
+        # remove old timestamps
+        uploads = [t for t in uploads if now - t < UPLOAD_WINDOW]
+
+        if uploads:
+            upload_tracker[ip] = uploads
+        else:
+            upload_tracker.pop(ip, None)
+
+        if len(uploads) >= UPLOAD_LIMIT:
+            retry_after = int(UPLOAD_WINDOW - (now - uploads[0]))
+            return False, retry_after
+
+        uploads.append(now)
+        upload_tracker[ip] = uploads
+
+    return True, 0
 
 def save_output_file(obj, path):
     if obj is None:
@@ -164,6 +193,7 @@ def _evict_for_capacity_locked():
 
 def cleanup_expired():
     now = time.time()
+
     with storage_lock:
         removed = _cleanup_expired_locked(now)
 
@@ -231,6 +261,17 @@ def home():
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    ip = request.remote_addr
+    allowed, wait_time = check_rate_limit(ip)
+
+    if not allowed:
+        return f"""
+        <script>
+        alert("Too many uploads. Please wait {wait_time} seconds before uploading again.");
+        window.history.back();
+        </script>
+        """, 429
+    
     file = request.files.get("file")
 
     if not file:
@@ -541,4 +582,3 @@ cleanup_thread.start()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
