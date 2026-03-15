@@ -20,7 +20,7 @@ upload_tracker_lock = threading.Lock()
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 
 EXPIRY_SECONDS = 300
-MAX_SESSIONS = 1
+MAX_SESSIONS = 100
 CLEANUP_INTERVAL = 10
 PROCESSING_LIMIT = 6
 
